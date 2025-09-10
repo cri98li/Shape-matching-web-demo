@@ -24,6 +24,45 @@ canvas.addEventListener('mouseup', () => {
 });
 canvas.addEventListener('mouseout', () => isDrawing = false);
 
+
+// Touch events per dispositivi mobili
+canvas.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    const touch = e.touches[0];
+    const rect = canvas.getBoundingClientRect();
+    lastX = touch.clientX - rect.left;
+    lastY = touch.clientY - rect.top;
+    isDrawing = true;
+});
+
+canvas.addEventListener('touchmove', (e) => {
+    e.preventDefault();
+    if (!isDrawing) return;
+    const touch = e.touches[0];
+    const rect = canvas.getBoundingClientRect();
+    const currentX = touch.clientX - rect.left;
+    const currentY = touch.clientY - rect.top;
+
+    ctx.beginPath();
+    ctx.moveTo(lastX, lastY);
+    ctx.lineTo(currentX, currentY);
+    ctx.stroke();
+
+    lastX = currentX;
+    lastY = currentY;
+});
+
+canvas.addEventListener('touchend', () => {
+    isDrawing = false;
+    saveOriginalImage();
+    updateHoughAccumulator();
+});
+
+
+
+
+
+
 function draw(e) {
     if (!isDrawing) return;
     ctx.beginPath();
