@@ -146,24 +146,70 @@ function getGrayImage() {
     return gray;
 }
 
+function computeHoughAccumulator(edgeImage, thetaStep = 1, rhoStep = 1) {
+    const width = edgeImage.cols;
+    const height = edgeImage.rows;
+
+    const maxRho = Math.hypot(width, height);
+    const numRho = Math.ceil((2 * maxRho) / rhoStep); // +maxRho to -maxRho
+    const numTheta = Math.floor(180 / thetaStep); // θ from 0 to 179
+
+    // Initialize accumulator
+    const accumulator = Array.from({ length: numRho }, () => new Array(numTheta).fill(0));
+
+    const centerX = width / 2;
+    const centerY = height / 2;
+
+    for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+            const pixel = edgeImage.ucharPtr(y, x)[0]; // Assuming grayscale edge image
+            if (pixel === 0) continue; // Only consider edge points
+
+            for (let t = 0; t < numTheta; t++) {
+                const theta = t * thetaStep * Math.PI / 180; // convert to radians
+                const rho = (x - centerX) * Math.cos(theta) + (y - centerY) * Math.sin(theta);
+                const rIdx = Math.round((rho + maxRho) / rhoStep);
+
+                accumulator[rIdx][t]++;
+            }
+        }
+    }
+
+    return {
+        accumulator,
+        numRho,
+        numTheta,
+        rhoStep,
+        thetaStep
+    };
+}
+
+function sumAccumulatorColumns(accumulator) {
+    const numRho = accumulator.length;
+    const numTheta = accumulator[0].length;
+
+    const thetaSums = new Array(numTheta).fill(0);
+
+    for (let theta = 0; theta < numTheta; theta++) {
+        for (let rho = 0; rho < numRho; rho++) {
+            thetaSums[theta] += accumulator[rho][theta]*accumulator[rho][theta];
+        }
+    }
+
+    return thetaSums;
+}
+
+
 let savedMaxY = null; // globale per conservare il massimo
 
 function updateHoughAccumulator() {
     let gray = getGrayImage();
-    cv.threshold(gray, gray, 127, 255, cv.THRESH_BINARY);
+    cv.threshold(gray, gray, 10, 255, cv.THRESH_BINARY);
 
-    let lines = new cv.Mat();
-    cv.HoughLines(gray, lines, 1, Math.PI / 180, 0);
+    let {accumulator, numRho, numTheta, rhoStep, thetaStep} = computeHoughAccumulator(gray)
 
-    const thetaCounts = new Array(180).fill(0);
-    for (let i = 0; i < lines.rows; ++i) {
-        const theta = lines.data32F[i * 2 + 1];
-        const deg = Math.round(theta * 180 / Math.PI) % 180;
-        thetaCounts[deg]++;
-    }
 
-    //const logCounts = thetaCounts.map(v => Math.log1p(v));
-    const logCounts = thetaCounts.map(v => v);
+    const logCounts = sumAccumulatorColumns(accumulator)
 
     MaxY = Math.max(5, Math.max(...logCounts));
     if (savedMaxY === null || MaxY > savedMaxY) {
@@ -200,7 +246,7 @@ function updateHoughAccumulator() {
     });
 
     gray.delete();
-    lines.delete();
+    //lines.delete();
 }
 
 // Reset savedMaxY quando si preme Clear
