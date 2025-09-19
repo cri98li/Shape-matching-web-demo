@@ -189,18 +189,25 @@ function sumAccumulatorColumns(accumulator) {
     const numTheta = accumulator[0].length;
 
     const thetaSums = new Array(numTheta).fill(0);
+    let massimo = 0
 
     for (let theta = 0; theta < numTheta; theta++) {
         for (let rho = 0; rho < numRho; rho++) {
             thetaSums[theta] += accumulator[rho][theta]*accumulator[rho][theta];
         }
+        if (massimo < thetaSums[theta]){
+            massimo = thetaSums[theta];
+        }
+    }
+
+    for (let theta = 0; theta < numTheta; theta++) {
+        thetaSums[theta] /= massimo;
     }
 
     return thetaSums;
 }
 
 
-let savedMaxY = null; // globale per conservare il massimo
 
 function updateHoughAccumulator() {
     let gray = getGrayImage();
@@ -211,11 +218,6 @@ function updateHoughAccumulator() {
 
     const logCounts = sumAccumulatorColumns(accumulator)
 
-    MaxY = Math.max(5, Math.max(...logCounts));
-    if (savedMaxY === null || MaxY > savedMaxY) {
-        savedMaxY = MaxY;
-    }
-
     const ctxChart = document.getElementById('accumulatorChart').getContext('2d');
     if (chart) chart.destroy();
     chart = new Chart(ctxChart, {
@@ -223,11 +225,11 @@ function updateHoughAccumulator() {
         data: {
             labels: Array.from({length: 180}, (_, i) => i),
             datasets: [{
-                label: 'log(Σ accumulator by θ)',
+                label: 'Σ accumulator² by θ',
                 data: logCounts,
                 borderColor: 'blue',
                 fill: false,
-                tension: 0.5,
+                tension: 0.1,
                 pointRadius: 0
             }]
         },
@@ -235,11 +237,14 @@ function updateHoughAccumulator() {
             responsive: false,
             animation: false,
             scales: {
-                x: { title: { display: true, text: 'θ (degrees)' } },
+                x: { title: { display: true, text: 'θ (degrees)' },
+                    min: 0,
+                    max: 180
+            },
                 y: { 
                     title: { display: true, text: 'count' },
                     min: 0,
-                    max: savedMaxY
+                    max: 1.04
                 }
             }
         }
